@@ -309,12 +309,13 @@ func (st *SchemaType) Json() string {
 		return fmt.Sprintf(`{"type": "%s"}`, TableTypeToJSONType[st.Typ])
 	}
 	if st.Typ == "array" {
-		return fmt.Sprintf(`{"type": "array", "items": {"type": %s}}`, st.Fields[""].Json())
+		return fmt.Sprintf(`{"type": "array", "items": %s}`, st.Fields[""].Json())
 	}
 	if st.Typ == "struct" {
 		x := `{"type": "object", "properties": {%s}}`
 		properties := []string{}
-		for fn, field := range st.Fields {
+		for _, fn := range st.FieldOrder {
+			field := st.Fields[fn]
 			properties = append(properties, fmt.Sprintf(`"%s": %s`, fn, field.Json()))
 		}
 		return fmt.Sprintf(x, fmt.Sprintf(strings.Join(properties, ", ")))
@@ -357,7 +358,7 @@ func VerifyExpectingStr(scn *SvcScanner, expected, context string) error {
 	return nil
 }
 
-func parseStruct(scn *SvcScanner) (*SchemaType, error) {
+func ParseStruct(scn *SvcScanner) (*SchemaType, error) {
 	outStruct := SchemaType{
 		Typ:        "struct",
 		Fields:     map[string]*SchemaType{},
@@ -393,7 +394,7 @@ func parseStruct(scn *SvcScanner) (*SchemaType, error) {
 			}
 			outStruct.AddField(fieldname, ftyp)
 		} else if str == "struct" {
-			ftyp, err := parseStruct(scn)
+			ftyp, err := ParseStruct(scn)
 			if err != nil {
 				return nil, err
 			}
@@ -454,7 +455,7 @@ func parseArray(scn *SvcScanner) (*SchemaType, error) {
 		}
 		outStruct.AddField("", ftyp)
 	} else if str == "struct" {
-		ftyp, err := parseStruct(scn)
+		ftyp, err := ParseStruct(scn)
 		if err != nil {
 			return nil, err
 		}
@@ -516,7 +517,7 @@ schemas into JSON schemas with the following command:
 	{
 		scn = NewSvcScanner(os.Stdin)
 	}
-	val, err := parseStruct(scn)
+	val, err := ParseStruct(scn)
 	if err != nil {
 		fmt.Printf("Recieved error while attempting to parse struct:\n%v\n", err)
 		fmt.Printf("\n%s\n", fmtUnitBuf(scn))
